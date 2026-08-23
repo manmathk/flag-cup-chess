@@ -1,0 +1,13 @@
+{
+  "name": "flag-cup-chess",
+  "version": "1.0.0",
+  "description": "YouTube Live World Cup of chess bots",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/engine.test.mjs",
+    "start": "npx --yes serve -l 5173 ."
+  },
+  "devDependencies": {
+    "chess.js": "^0.13.4"
+  }
+}
