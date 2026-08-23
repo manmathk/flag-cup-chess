@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>FLAG CUP CHESS · Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Russo+One&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f23;
+      --primary: #1e1b4b;
+      --secondary: #312e81;
+      --accent: #f97316;
+      --fg: #f8fafc;
+      --muted: #27273b;
+      --border: #4338ca;
+      --glass: rgba(30, 27, 75, 0.72);
+      --danger: #ef4444;
+      --ok: #22c55e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #050510;
+      color: var(--fg);
+      font-family: "Chakra Petch", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #viewport {
+      width: 100%; height: 100%;
+      display: grid;
+      place-items: center;
+    }
+    /* Default: 16:9 landscape broadcast */
+    #stage {
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+      position: relative;
+      background: radial-gradient(ellipse at 50% 30%, #1a1740 0%, var(--bg) 55%, #070712 100%);
+      overflow: hidden;
+      box-shadow: 0 0 80px rgba(67, 56, 202, 0.35);
+    }
+    /* Portrait / Shorts: 9:16 stage */
+    @media (orientation: portrait), (max-aspect-ratio: 3/4) {
+      #stage {
+        width: min(100vw, calc(100vh * 9 / 16));
+        height: min(100vh, calc(100vw * 16 / 9));
+      }
+    }
+    body.force-916 #stage {
+      width: min(100vw, calc(100vh * 9 / 16));
+      height: min(100vh, calc(100vw * 16 / 9));
+    }
+    body.force-169 #stage {
+      width: min(100vw, calc(100vh * 16 / 9));
+      height: min(100vh, calc(100vw * 9 / 16));
+    }
+    #board-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .panel {
+      position: absolute;
+      background: var(--glass);
+      border: 1px solid rgba(67, 56, 202, 0.55);
+      backdrop-filter: blur(12px);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+    #panel-left {
+      left: 1.2%; top: 8%;
+      width: 18%; height: 72%;
+      overflow: auto;
+    }
+    #panel-right {
+      right: 1.2%; top: 8%;
+      width: 18%; height: 58%;
+      overflow: auto;
+    }
+    #lower-third {
+      left: 22%; right: 22%; bottom: 11%;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 16px;
+      background: linear-gradient(90deg, rgba(30,27,75,0.9), rgba(249,115,22,0.25), rgba(30,27,75,0.9));
+    }
+    #ticker {
+      left: 1.2%; right: 1.2%; bottom: 1.5%;
+      height: 7.5%;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+      white-space: nowrap;
+      font-size: clamp(11px, 1.4vh, 16px);
+    }
+    #ticker-track {
+      display: inline-block;
+      animation: marquee 40s linear infinite;
+      padding-left: 100%;
+    }
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+    h1, h2, .brand {
+      font-family: "Russo One", sans-serif;
+      letter-spacing: 0.04em;
+    }
+    #topbar {
+      position: absolute;
+      left: 1.2%; right: 1.2%; top: 1.4%;
+      height: 5.5%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      z-index: 5;
+    }
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid var(--danger);
+      color: #fecaca;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: clamp(10px, 1.3vh, 14px);
+    }
+    .live-pill::before {
+      content: "";
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      box-shadow: 0 0 10px var(--danger);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .brand { font-size: clamp(14px, 2.2vh, 22px); color: var(--accent); }
+    .phase { font-size: clamp(11px, 1.5vh, 15px); opacity: 0.85; }
+    table.standings {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: clamp(10px, 1.25vh, 13px);
+    }
+    table.standings th, table.standings td {
+      padding: 4px 2px;
+      text-align: left;
+      border-bottom: 1px solid rgba(67, 56, 202, 0.35);
+    }
+    table.standings th { color: #a5b4fc; font-weight: 600; }
+    table.standings tr.qualify td { color: #86efac; }
+    .flag {
+      width: 18px; height: 12px;
+      object-fit: cover;
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 4px;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.15);
+    }
+    .panel h2 {
+      font-size: clamp(12px, 1.6vh, 16px);
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+    .match-flags {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+    .match-flags img {
+      width: 42px; height: 28px;
+      object-fit: cover;
+      border-radius: 4px;
+      box-shadow: 0 0 12px rgba(249,115,22,0.35);
+    }
+    .vs { opacity: 0.6; font-weight: 700; }
+    .score-big {
+      font-family: "Russo One", sans-serif;
+      font-size: clamp(18px, 2.8vh, 28px);
+      color: var(--accent);
+      min-width: 3ch;
+      text-align: center;
+    }
+    #move-list {
+      list-style: none;
+      font-size: clamp(10px, 1.3vh, 13px);
+      line-height: 1.45;
+      max-height: 55%;
+      overflow: hidden;
+    }
+    #move-list li { opacity: 0.9; }
+    #controls {
+      position: absolute;
+      right: 1.2%; bottom: 11%;
+      display: none;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-width: 18%;
+      z-index: 6;
+    }
+    #controls.open { display: flex; }
+    #controls button, #splash button, #mute-btn {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--secondary);
+      color: var(--fg);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      transition: transform 150ms ease, background 150ms ease;
+    }
+    #controls button:hover, #splash button:hover, #mute-btn:hover {
+      background: #4338ca;
+      transform: scale(0.97);
+    }
+    #mute-btn {
+      position: absolute;
+      top: 1.4%;
+      right: 1.2%;
+      z-index: 8;
+      padding: 6px 10px;
+    }
+    #game-actions {
+      position: absolute;
+      top: 1.4%;
+      right: 7.5%;
+      z-index: 8;
+      display: none;
+      gap: 8px;
+      align-items: center;
+    }
+    #game-actions.show { display: flex; }
+    #game-actions button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--secondary);
+      color: var(--fg);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      transition: transform 150ms ease, background 150ms ease;
+    }
+    #game-actions button:hover {
+      background: #4338ca;
+      transform: scale(0.97);
+    }
+    #game-actions button#pause-btn.is-paused {
+      background: var(--accent);
+      color: #111;
+      border-color: var(--accent);
+    }
+    #game-actions button#reset-btn {
+      border-color: rgba(239, 68, 68, 0.7);
+    }
+    #splash {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(249,115,22,0.18), transparent 40%),
+        radial-gradient(circle at 70% 70%, rgba(67,56,202,0.3), transparent 45%),
+        #0a0a18;
+      text-align: center;
+      padding: 24px;
+    }
+    #splash.hidden { display: none; }
+    #splash h1 {
+      font-size: clamp(28px, 7vh, 64px);
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #fff, var(--accent));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    #splash p {
+      max-width: 520px;
+      margin: 0 auto 22px;
+      opacity: 0.85;
+      font-size: clamp(13px, 2vh, 18px);
+    }
+    #splash button {
+      font-size: clamp(14px, 2.2vh, 18px);
+      padding: 14px 28px;
+      background: linear-gradient(135deg, var(--accent), #ea580c);
+      border: none;
+      color: #111;
+      box-shadow: 0 0 30px rgba(249,115,22,0.45);
+    }
+    #splash .splash-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      align-items: center;
+    }
+    #splash button.secondary {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+    #splash button.secondary:hover {
+      background: var(--secondary);
+      color: var(--fg);
+    }
+    .soundtrack-box {
+      margin: 18px auto 0;
+      max-width: 480px;
+      padding: 12px 14px;
+      border: 1px solid rgba(67, 56, 202, 0.45);
+      border-radius: 12px;
+      background: rgba(30, 27, 75, 0.45);
+      text-align: left;
+    }
+    .soundtrack-box .soundtrack-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #c7d2fe;
+      margin-bottom: 8px;
+    }
+    .soundtrack-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    #soundtrack-input {
+      flex: 1;
+      min-width: 180px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--fg);
+    }
+    #soundtrack-src {
+      flex: 1;
+      min-width: 180px;
+      font-family: inherit;
+      font-size: 12px;
+      color: var(--fg);
+      background: rgba(15, 15, 35, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    #bg-soundtrack {
+      display: none;
+    }
+    #soundtrack-input::file-selector-button {
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--secondary);
+      color: var(--fg);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-right: 10px;
+    }
+    #clear-track-btn {
+      padding: 8px 12px !important;
+      font-size: 12px !important;
+    }
+    #soundtrack-status {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    #draw-preview {
+      margin: 16px auto 0;
+      max-width: 520px;
+      text-align: left;
+      font-size: clamp(11px, 1.6vh, 13px);
+      opacity: 0.9;
+      line-height: 1.55;
+    }
+    #draw-preview strong { color: var(--accent); }
+    #overlay-card {
+      position: absolute;
+      left: 50%; top: 42%;
+      transform: translate(-50%, -50%) scale(0.92);
+      min-width: 42%;
+      padding: 22px 28px;
+      text-align: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 350ms ease, transform 350ms ease;
+      z-index: 10;
+      background: rgba(15, 15, 35, 0.92);
+      border: 1px solid var(--accent);
+      border-radius: 16px;
+    }
+    #overlay-card.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+    #overlay-card h2 { font-size: clamp(18px, 3vh, 32px); margin-bottom: 10px; }
+    #overlay-card .flags { display: flex; justify-content: center; gap: 24px; align-items: center; }
+    #overlay-card img { width: 72px; height: 48px; object-fit: cover; border-radius: 6px; }
+    #caption {
+      position: absolute;
+      left: 50%;
+      bottom: 22%;
+      transform: translateX(-50%) translateY(8px);
+      max-width: 74%;
+      padding: 10px 18px;
+      text-align: center;
+      font-size: clamp(13px, 2vh, 20px);
+      font-weight: 600;
+      line-height: 1.35;
+      color: #fff;
+      background: rgba(15, 15, 35, 0.92);
+      border: 1px solid rgba(249, 115, 22, 0.7);
+      border-radius: 10px;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 15;
+      transition: opacity 200ms ease, transform 200ms ease;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    }
+    #caption.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #bracket {
+      font-size: clamp(10px, 1.2vh, 12px);
+      line-height: 1.5;
+    }
+    #bracket .round { margin-bottom: 8px; color: #a5b4fc; font-weight: 700; }
+    .hint {
+      position: absolute;
+      left: 22%; bottom: 20%;
+      font-size: 11px;
+      opacity: 0.45;
+      z-index: 4;
+    }
+    @media (max-width: 900px) {
+      #panel-left, #panel-right { width: 22%; }
+      .hint { display: none; }
+    }
+
+    /* —— 9:16 vertical layout —— */
+    @media (orientation: portrait), (max-aspect-ratio: 3/4) {
+      #topbar {
+        height: auto;
+        min-height: 4.5%;
+        padding: 6px 10px;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .brand { font-size: clamp(12px, 2.8vw, 18px); }
+      .phase { font-size: clamp(10px, 2.2vw, 13px); width: 100%; order: 3; }
+      #mute-btn {
+        top: auto;
+        bottom: 10.5%;
+        right: 2%;
+        padding: 8px 12px;
+        font-size: 11px;
+      }
+      #game-actions {
+        top: auto;
+        bottom: 10.5%;
+        right: 28%;
+        left: 2%;
+        justify-content: flex-start;
+      }
+      #game-actions button {
+        padding: 8px 12px;
+        font-size: 11px;
+      }
+      #panel-left {
+        left: 2%;
+        top: 7.5%;
+        width: 47%;
+        height: 20%;
+        padding: 6px 8px;
+      }
+      #panel-right {
+        right: 2%;
+        left: auto;
+        top: 7.5%;
+        width: 47%;
+        height: 20%;
+        padding: 6px 8px;
+      }
+      #panel-left h2, #panel-right h2 {
+        font-size: clamp(10px, 2.4vw, 13px);
+        margin-bottom: 4px;
+      }
+      table.standings { font-size: clamp(9px, 2vw, 11px); }
+      table.standings th, table.standings td { padding: 2px 1px; }
+      .flag { width: 14px; height: 10px; }
+      #move-list {
+        max-height: 70%;
+        font-size: clamp(9px, 2vw, 11px);
+      }
+      #lower-third {
+        left: 2%;
+        right: 2%;
+        bottom: 9%;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 8px 10px;
+        justify-content: center;
+      }
+      .match-flags { justify-content: center; flex-wrap: wrap; }
+      .match-flags img { width: 36px; height: 24px; }
+      #lt-label {
+        width: 100%;
+        text-align: center !important;
+        min-width: 0 !important;
+        font-size: clamp(11px, 2.6vw, 14px);
+      }
+      .score-big { font-size: clamp(16px, 4vw, 24px); }
+      #ticker {
+        left: 2%;
+        right: 2%;
+        bottom: 1.2%;
+        height: 6.5%;
+        font-size: clamp(10px, 2.4vw, 13px);
+      }
+      #controls {
+        left: 2%;
+        right: 2%;
+        bottom: 17%;
+        max-width: none;
+        justify-content: center;
+      }
+      #controls button { flex: 1 1 auto; min-width: 64px; }
+      #overlay-card {
+        min-width: 78%;
+        top: 48%;
+        padding: 16px 14px;
+      }
+      #overlay-card img { width: 56px; height: 38px; }
+      #splash { padding: 20px 16px; }
+      #splash h1 { font-size: clamp(26px, 9vw, 48px); }
+      #splash p { font-size: clamp(12px, 3.4vw, 16px); }
+      .hint { display: none; }
+      #caption {
+        bottom: 17%;
+        max-width: 92%;
+        font-size: clamp(11px, 3vw, 15px);
+      }
+    }
+
+    body.force-916 #topbar {
+      height: auto;
+      min-height: 4.5%;
+      padding: 6px 10px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    body.force-916 .brand { font-size: clamp(12px, 2.8vw, 18px); }
+    body.force-916 .phase { font-size: clamp(10px, 2.2vw, 13px); width: 100%; order: 3; }
+    body.force-916 #mute-btn {
+      top: auto;
+      bottom: 10.5%;
+      right: 2%;
+    }
+    body.force-916 #game-actions {
+      top: auto;
+      bottom: 10.5%;
+      right: 28%;
+      left: 2%;
+      justify-content: flex-start;
+    }
+    body.force-916 #panel-left {
+      left: 2%; top: 7.5%; width: 47%; height: 20%; padding: 6px 8px;
+    }
+    body.force-916 #panel-right {
+      right: 2%; left: auto; top: 7.5%; width: 47%; height: 20%; padding: 6px 8px;
+    }
+    body.force-916 #lower-third {
+      left: 2%; right: 2%; bottom: 9%; flex-wrap: wrap; gap: 8px;
+      padding: 8px 10px; justify-content: center;
+    }
+    body.force-916 #lt-label {
+      width: 100%; text-align: center !important; min-width: 0 !important;
+    }
+    body.force-916 #ticker {
+      left: 2%; right: 2%; bottom: 1.2%; height: 6.5%;
+    }
+    body.force-916 #controls {
+      left: 2%; right: 2%; bottom: 17%; max-width: none; justify-content: center;
+    }
+      body.force-916 #overlay-card { min-width: 78%; top: 48%; }
+    body.force-916 .hint { display: none; }
+    body.force-916 #caption {
+      bottom: 17%;
+      max-width: 92%;
+      font-size: clamp(11px, 3vw, 15px);
+    }
+
+    @media (orientation: portrait), (max-aspect-ratio: 3/4) {
+      #caption {
+        bottom: 17%;
+        max-width: 92%;
+        font-size: clamp(11px, 3vw, 15px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #ticker-track { animation: none; }
+      * { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="viewport">
+    <div id="stage">
+      <canvas id="board-canvas"></canvas>
+
+      <div id="topbar" class="panel" style="padding: 0 14px;">
+        <div class="brand">FLAG CUP CHESS</div>
+        <div class="phase" id="phase-label">WORLD CUP · WAITING</div>
+        <div class="live-pill">LIVE</div>
+      </div>
+
+      <button id="mute-btn" type="button" title="Mute">SOUND ON</button>
+      <div id="game-actions">
+        <button type="button" id="pause-btn" title="Pause or resume">PAUSE</button>
+        <button type="button" id="reset-btn" title="Reset tournament">RESET</button>
+      </div>
+
+      <aside id="panel-left" class="panel">
+        <h2 id="left-title">GROUP TABLES</h2>
+        <div id="left-body"></div>
+      </aside>
+
+      <aside id="panel-right" class="panel">
+        <h2>NOW PLAYING</h2>
+        <div id="now-meta" style="margin-bottom:8px;font-size:clamp(11px,1.4vh,14px);opacity:0.85;">—</div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span id="clock-white">W 0</span>
+          <span id="clock-black">B 0</span>
+        </div>
+        <ul id="move-list"></ul>
+      </aside>
+
+      <div id="lower-third" class="panel">
+        <div class="match-flags">
+          <img id="lt-flag-w" alt="" />
+          <div>
+            <div id="lt-name-w" style="font-weight:700;">WHITE</div>
+            <div style="font-size:11px;opacity:0.7;">WHITE</div>
+          </div>
+          <span class="vs">VS</span>
+          <div style="text-align:right;">
+            <div id="lt-name-b" style="font-weight:700;">BLACK</div>
+            <div style="font-size:11px;opacity:0.7;">BLACK</div>
+          </div>
+          <img id="lt-flag-b" alt="" />
+        </div>
+        <div class="score-big" id="lt-score">0-0</div>
+        <div id="lt-label" style="font-weight:700;min-width:28%;text-align:right;">GROUP A</div>
+      </div>
+
+      <div id="ticker" class="panel"><div id="ticker-track">FLAG CUP CHESS · 16 NATIONS · GROUP STAGE + KNOCKOUTS · AUTO BOTS</div></div>
+
+      <div id="controls">
+        <button type="button" data-act="pause">Pause</button>
+        <button type="button" data-act="slow">Slow</button>
+        <button type="button" data-act="broadcast">Broadcast</button>
+        <button type="button" data-act="fast">Fast</button>
+        <button type="button" data-act="skip">Skip Match</button>
+        <button type="button" data-act="aspect">9:16 / 16:9</button>
+      </div>
+      <div class="hint">PAUSE / RESET on screen · Space pause · R reset · C more controls · V aspect</div>
+
+      <div id="overlay-card">
+        <h2 id="overlay-title">MATCH</h2>
+        <div class="flags">
+          <div><img id="ov-flag-w" alt="" /><div id="ov-name-w"></div></div>
+          <div class="vs">VS</div>
+          <div><img id="ov-flag-b" alt="" /><div id="ov-name-b"></div></div>
+        </div>
+        <p id="overlay-sub" style="margin-top:12px;opacity:0.8;"></p>
+      </div>
+
+      <div id="caption" aria-live="polite"></div>
+
+      <div id="splash">
+        <div>
+          <h1>FLAG CUP CHESS</h1>
+          <p>16 nations. Auto bots. Group stage, points tables, knockouts, and a champion — for YouTube Live (16:9) and Shorts / Reels (9:16). Capture this stage in OBS.</p>
+          <div class="splash-actions">
+            <button type="button" id="shuffle-btn" class="secondary">SHUFFLE GROUPS</button>
+            <button type="button" id="start-btn">START BROADCAST</button>
+          </div>
+          <div class="soundtrack-box">
+            <label class="soundtrack-label" for="soundtrack-src">Background soundtrack (20% volume)</label>
+            <audio id="bg-soundtrack" src="soundtrack.mp3" loop preload="auto"></audio>
+            <div class="soundtrack-row">
+              <input id="soundtrack-src" type="text" value="soundtrack.mp3" spellcheck="false" placeholder="soundtrack.mp3 or https://..." />
+              <button type="button" id="apply-track-btn" class="secondary">APPLY SRC</button>
+            </div>
+            <div class="soundtrack-row" style="margin-top:8px;">
+              <input id="soundtrack-input" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" />
+              <button type="button" id="clear-track-btn" class="secondary">CLEAR</button>
+            </div>
+            <div id="soundtrack-status">HTML src: soundtrack.mp3 · volume 20%</div>
+          </div>
+          <div id="draw-preview"></div>
+          <p style="margin-top:14px;font-size:12px;opacity:0.55;">Tip: shuffle the draw before starting · V for 9:16 / 16:9 · C for controls</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "chess.js": "https://cdn.jsdelivr.net/npm/chess.js@0.13.4/+esm",
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import { Chess } from 'chess.js';
+    import * as THREE from 'three';
+    import * as Engine from './engine.js';
+
+    globalThis.Chess = Chess;
+    globalThis.THREE = THREE;
+
+    const {
+      NATIONS, GROUPS, nationById, roundRobinPairings, createStandings,
+      applyMatchResult, rankGroup, getQualifiers, knockoutFixtures,
+      nextKnockoutRound, chooseBotMove, buildGroupSchedule, winnerOf,
+      isCheckmate, isDraw, isGameOver, isCheck, shuffleGroups, resetGroups,
+    } = Engine;
+
+    const SPEEDS = { slow: 1800, broadcast: 1000, fast: 280 };
+    const flagUrl = (iso) => `https://flagcdn.com/w160/${iso}.png`;
+
+    const state = {
+      paused: false,
+      skipMatch: false,
+      speed: 'broadcast',
+      muted: false,
+      phase: 'idle',
+      runId: 0,
+      groupData: {},
+      scheduleIndex: 0,
+      groupSchedule: [],
+      bracket: { qf: [], sf: [], final: null, winners: { qf: [], sf: [], champion: null } },
+      currentMoves: [],
+      moveCount: { w: 0, b: 0 },
+    };
+
+    function isActiveRun(runId) {
+      return runId === state.runId;
+    }
+
+    function updatePauseButton() {
+      const btn = $('pause-btn');
+      if (!btn) return;
+      btn.textContent = state.paused ? 'RESUME' : 'PAUSE';
+      btn.classList.toggle('is-paused', state.paused);
+      const live = document.querySelector('.live-pill');
+      if (live) live.textContent = state.paused ? 'PAUSED' : 'LIVE';
+    }
+
+    function togglePause() {
+      if (state.phase === 'idle') return;
+      state.paused = !state.paused;
+      updatePauseButton();
+      if (state.paused) {
+        Voice.speak('Broadcast paused.');
+      } else {
+        Voice.speak('Broadcast resumed.');
+      }
+    }
+
+    function resetBroadcast() {
+      state.runId += 1;
+      state.paused = false;
+      state.skipMatch = true;
+      state.phase = 'idle';
+      state.scheduleIndex = 0;
+      state.groupSchedule = [];
+      state.currentMoves = [];
+      state.moveCount = { w: 0, b: 0 };
+      state.bracket = { qf: [], sf: [], final: null, winners: { qf: [], sf: [], champion: null } };
+      resetTournamentTables();
+      updatePauseButton();
+      hideOverlay();
+      Voice.stop();
+      AudioFX.crowdStop();
+      $('phase-label').textContent = 'WORLD CUP · WAITING';
+      $('game-actions').classList.remove('show');
+      $('splash').classList.remove('hidden');
+      $('move-list').innerHTML = '';
+      $('clock-white').textContent = 'W 0';
+      $('clock-black').textContent = 'B 0';
+      $('now-meta').textContent = '—';
+      Board3D.reset();
+      renderGroupTables();
+      renderDrawPreview();
+      previewOpeningFixture();
+      Voice.speak('Tournament reset. Shuffle or start again.');
+    }
+
+    for (const letter of ['A', 'B', 'C', 'D']) {
+      state.groupData[letter] = {
+        standings: createStandings(GROUPS[letter]),
+        results: [],
+        ranked: null,
+      };
+    }
+
+    function resetTournamentTables() {
+      for (const letter of ['A', 'B', 'C', 'D']) {
+        state.groupData[letter] = {
+          standings: createStandings(GROUPS[letter]),
+          results: [],
+          ranked: null,
+        };
+      }
+    }
+
+    function previewOpeningFixture() {
+      const schedule = buildGroupSchedule();
+      const first = schedule[0];
+      if (!first) return;
+      updateLowerThird(first, '0-0');
+      Board3D.setFlags(nationById(first.white).iso, nationById(first.black).iso);
+    }
+
+    function renderDrawPreview() {
+      const el = $('draw-preview');
+      if (!el) return;
+      el.innerHTML = ['A', 'B', 'C', 'D'].map((letter) => {
+        const names = GROUPS[letter].map((id) => nationById(id).name).join(', ');
+        return `<div><strong>Group ${letter}:</strong> ${names}</div>`;
+      }).join('');
+    }
+
+    function applyShuffle(announce = true) {
+      shuffleGroups();
+      resetTournamentTables();
+      renderGroupTables();
+      renderDrawPreview();
+      previewOpeningFixture();
+      const first = buildGroupSchedule()[0];
+      const opener = `${nationById(first.white).name} vs ${nationById(first.black).name}`;
+      if (announce) {
+        Voice.speak(`Groups shuffled. Opening match: Group ${first.group}, ${opener}.`);
+      }
+    }
+
+    /* ---------- Audio ---------- */
+    const AudioFX = (() => {
+      const TRACK_VOLUME = 0.2; // user soundtrack at 20%
+      const TRACK_DUCK = 0.06;
+      const BED_VOLUME = 0.055;
+      const BED_DUCK = 0.018;
+
+      let ctx = null;
+      let crowd = null;
+      let music = null;
+      let musicTimer = null;
+      let ducking = false;
+      let soundtrackUrl = null;
+      let soundtrackName = null;
+      let trackEl = null;
+      let trackSource = null;
+      let trackGain = null;
+
+      function ensure() {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+        return ctx;
+      }
+
+      function tone(freq, dur, type = 'sine', gain = 0.08, at = 0) {
+        if (state.muted) return;
+        const c = ensure();
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.value = gain;
+        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + at + dur);
+        o.connect(g); g.connect(c.destination);
+        o.start(c.currentTime + at);
+        o.stop(c.currentTime + at + dur + 0.02);
+      }
+
+      function noiseBurst(dur = 0.12, gain = 0.04) {
+        if (state.muted) return;
+        const c = ensure();
+        const buffer = c.createBuffer(1, c.sampleRate * dur, c.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+        const src = c.createBufferSource();
+        const g = c.createGain();
+        src.buffer = buffer;
+        g.gain.value = gain;
+        src.connect(g); g.connect(c.destination);
+        src.start();
+      }
+
+      function setMusicGain(target, secs = 0.6) {
+        const c = ensure();
+        const node = music?.master || trackGain;
+        if (!node) return;
+        const g = node.gain;
+        g.cancelScheduledValues(c.currentTime);
+        g.setValueAtTime(g.value, c.currentTime);
+        g.linearRampToValueAtTime(target, c.currentTime + secs);
+      }
+
+      function ensureTrackGraph() {
+        const c = ensure();
+        if (!trackEl) {
+          trackEl = document.getElementById('bg-soundtrack') || new Audio();
+          trackEl.loop = true;
+          trackEl.preload = 'auto';
+        }
+        if (!trackGain) {
+          trackGain = c.createGain();
+          trackGain.gain.value = 0;
+          trackGain.connect(c.destination);
+        }
+        if (!trackSource) {
+          trackSource = c.createMediaElementSource(trackEl);
+          trackSource.connect(trackGain);
+        }
+        return trackEl;
+      }
+
+      function stopTrackPlayback() {
+        if (trackEl) {
+          try {
+            trackEl.pause();
+            trackEl.currentTime = 0;
+          } catch (_) {}
+        }
+        if (trackGain) {
+          try { trackGain.gain.value = 0; } catch (_) {}
+        }
+      }
+
+      function syncSrcUi(path) {
+        const srcInput = document.getElementById('soundtrack-src');
+        if (srcInput && path != null) srcInput.value = path;
+        const audio = document.getElementById('bg-soundtrack');
+        if (audio && path != null && !String(path).startsWith('blob:')) {
+          audio.setAttribute('src', path);
+        }
+      }
+
+      function startTrack() {
+        if (!soundtrackUrl || state.muted) return false;
+        if (musicTimer) {
+          clearInterval(musicTimer);
+          musicTimer = null;
+        }
+        if (music && music.mode === 'bed') {
+          const dying = music;
+          music = null;
+          try {
+            dying.master.gain.value = 0.0001;
+          } catch (_) {}
+          setTimeout(() => {
+            while (dying.padOsc?.length) {
+              const node = dying.padOsc.pop();
+              try { node.o.stop(); node.o2.stop(); } catch (_) {}
+            }
+          }, 200);
+        }
+        const el = ensureTrackGraph();
+        let abs = soundtrackUrl;
+        try { abs = new URL(soundtrackUrl, location.href).href; } catch (_) {}
+        if (el.src !== abs) {
+          el.src = soundtrackUrl;
+          try { el.load(); } catch (_) {}
+        }
+        el.loop = true;
+        const c = ensure();
+        trackGain.gain.cancelScheduledValues(c.currentTime);
+        trackGain.gain.setValueAtTime(0, c.currentTime);
+        trackGain.gain.linearRampToValueAtTime(TRACK_VOLUME, c.currentTime + 1);
+        el.play().catch((err) => console.warn('Soundtrack play failed', err));
+        music = { master: trackGain, mode: 'track' };
+        return true;
+      }
+
+      function musicStart() {
+        if (state.muted || music) return;
+        if (soundtrackUrl && startTrack()) return;
+        const c = ensure();
+        const master = c.createGain();
+        master.gain.value = 0;
+        master.connect(c.destination);
+
+        const filter = c.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 1400;
+        filter.Q.value = 0.7;
+        filter.connect(master);
+
+        const padGain = c.createGain();
+        padGain.gain.value = 0.22;
+        padGain.connect(filter);
+
+        const chords = [
+          [220.00, 261.63, 329.63],
+          [174.61, 220.00, 261.63],
+          [196.00, 246.94, 293.66],
+          [146.83, 174.61, 220.00],
+        ];
+        let chordIndex = 0;
+        const padOsc = [];
+
+        function setChord(freqs) {
+          while (padOsc.length) {
+            const node = padOsc.pop();
+            try {
+              node.g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.4);
+              node.o.stop(c.currentTime + 0.45);
+              node.o2.stop(c.currentTime + 0.45);
+            } catch (_) {}
+          }
+          for (const f of freqs) {
+            const o = c.createOscillator();
+            const o2 = c.createOscillator();
+            const g = c.createGain();
+            o.type = 'sine';
+            o2.type = 'triangle';
+            o.frequency.value = f;
+            o2.frequency.value = f * 1.002;
+            g.gain.value = 0.0001;
+            g.gain.exponentialRampToValueAtTime(0.09, c.currentTime + 0.8);
+            o.connect(g);
+            o2.connect(g);
+            g.connect(padGain);
+            o.start();
+            o2.start();
+            padOsc.push({ o, o2, g });
+          }
+        }
+        setChord(chords[0]);
+
+        const arpGain = c.createGain();
+        arpGain.gain.value = 0.12;
+        arpGain.connect(filter);
+        const arpNotes = [220, 261.63, 329.63, 392, 329.63, 261.63];
+        let arpStep = 0;
+        let beat = 0;
+
+        function pulse() {
+          if (!music || music.mode !== 'bed' || state.muted) return;
+          const now = c.currentTime;
+          if (beat % 4 === 0) {
+            const o = c.createOscillator();
+            const g = c.createGain();
+            o.type = 'sine';
+            o.frequency.setValueAtTime(90, now);
+            o.frequency.exponentialRampToValueAtTime(40, now + 0.18);
+            g.gain.setValueAtTime(0.05, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            o.connect(g); g.connect(master);
+            o.start(now); o.stop(now + 0.22);
+          }
+          const freq = arpNotes[arpStep % arpNotes.length] * (chordIndex % 2 === 0 ? 1 : 0.75);
+          const o = c.createOscillator();
+          const g = c.createGain();
+          o.type = 'triangle';
+          o.frequency.value = freq;
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.exponentialRampToValueAtTime(0.045, now + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+          o.connect(g); g.connect(arpGain);
+          o.start(now); o.stop(now + 0.3);
+          arpStep += 1;
+          beat += 1;
+          if (beat % 16 === 0) {
+            chordIndex = (chordIndex + 1) % chords.length;
+            setChord(chords[chordIndex]);
+            const root = chords[chordIndex];
+            arpNotes[0] = root[0];
+            arpNotes[1] = root[1];
+            arpNotes[2] = root[2];
+            arpNotes[3] = root[2] * 1.5;
+            arpNotes[4] = root[1];
+            arpNotes[5] = root[0];
+          }
+        }
+
+        musicTimer = setInterval(pulse, 380);
+        pulse();
+        master.gain.linearRampToValueAtTime(BED_VOLUME, c.currentTime + 2.5);
+        music = { master, padOsc, padGain, arpGain, filter, mode: 'bed' };
+      }
+
+      function musicStop() {
+        if (musicTimer) {
+          clearInterval(musicTimer);
+          musicTimer = null;
+        }
+        if (music && music.mode === 'bed') {
+          const c = ensure();
+          try {
+            music.master.gain.cancelScheduledValues(c.currentTime);
+            music.master.gain.linearRampToValueAtTime(0.0001, c.currentTime + 0.4);
+          } catch (_) {}
+          const dying = music;
+          music = null;
+          setTimeout(() => {
+            while (dying.padOsc?.length) {
+              const node = dying.padOsc.pop();
+              try { node.o.stop(); node.o2.stop(); } catch (_) {}
+            }
+            try { dying.master.disconnect(); } catch (_) {}
+          }, 500);
+        } else {
+          music = null;
+        }
+        stopTrackPlayback();
+        ducking = false;
+      }
+
+      function setSoundtrack(file) {
+        if (soundtrackUrl && String(soundtrackUrl).startsWith('blob:')) {
+          URL.revokeObjectURL(soundtrackUrl);
+        }
+        soundtrackUrl = null;
+        soundtrackName = null;
+        if (!file) {
+          musicStop();
+          syncSrcUi('');
+          const audio = document.getElementById('bg-soundtrack');
+          if (audio) audio.removeAttribute('src');
+          return null;
+        }
+        soundtrackUrl = URL.createObjectURL(file);
+        soundtrackName = file.name;
+        syncSrcUi(file.name);
+        if (!state.muted) {
+          musicStop();
+          musicStart();
+        }
+        return soundtrackName;
+      }
+
+      function setSoundtrackSrc(src) {
+        if (soundtrackUrl && String(soundtrackUrl).startsWith('blob:')) {
+          URL.revokeObjectURL(soundtrackUrl);
+        }
+        const path = String(src || '').trim();
+        if (!path) {
+          soundtrackUrl = null;
+          soundtrackName = null;
+          musicStop();
+          syncSrcUi('');
+          const audio = document.getElementById('bg-soundtrack');
+          if (audio) {
+            audio.removeAttribute('src');
+            try { audio.load(); } catch (_) {}
+          }
+          return null;
+        }
+        soundtrackUrl = path;
+        soundtrackName = path.split('/').pop() || path;
+        syncSrcUi(path);
+        const el = ensureTrackGraph();
+        el.src = path;
+        try { el.load(); } catch (_) {}
+        if (!state.muted) {
+          musicStop();
+          musicStart();
+        }
+        return soundtrackName;
+      }
+
+      function initSoundtrackFromHtml() {
+        const audio = document.getElementById('bg-soundtrack');
+        const srcInput = document.getElementById('soundtrack-src');
+        const fromAudio = audio?.getAttribute('src')?.trim();
+        const fromInput = srcInput?.value?.trim();
+        const path = fromInput || fromAudio || '';
+        if (!path) return;
+        soundtrackUrl = path;
+        soundtrackName = path.split('/').pop() || path;
+        syncSrcUi(path);
+      }
+
+      return {
+        unlock() { ensure(); },
+        move() { tone(420, 0.05, 'triangle', 0.05); },
+        capture() { tone(180, 0.08, 'square', 0.06); noiseBurst(0.1, 0.05); },
+        check() { tone(660, 0.1, 'sawtooth', 0.05); tone(880, 0.12, 'sine', 0.04, 0.05); },
+        sting() { tone(523, 0.15, 'square', 0.07); tone(659, 0.2, 'square', 0.06, 0.12); tone(784, 0.35, 'square', 0.05, 0.25); },
+        fanfare() {
+          [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.28, 'square', 0.06, i * 0.12));
+        },
+        crowdStart() {
+          if (state.muted || crowd) return;
+          const c = ensure();
+          const buffer = c.createBuffer(1, c.sampleRate * 2, c.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.15;
+          const src = c.createBufferSource();
+          const g = c.createGain();
+          const filter = c.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 800;
+          src.buffer = buffer;
+          src.loop = true;
+          g.gain.value = 0.012;
+          src.connect(filter); filter.connect(g); g.connect(c.destination);
+          src.start();
+          crowd = { src, g };
+        },
+        crowdStop() {
+          if (crowd) { try { crowd.src.stop(); } catch (_) {} crowd = null; }
+        },
+        musicStart,
+        musicStop,
+        setSoundtrack,
+        setSoundtrackSrc,
+        initSoundtrackFromHtml,
+        getSoundtrackName() { return soundtrackName; },
+        hasSoundtrack() { return !!soundtrackUrl; },
+        duckMusic() {
+          if (ducking) return;
+          if (!music && !trackGain) return;
+          ducking = true;
+          const target = (music?.mode === 'track' || soundtrackUrl) ? TRACK_DUCK : BED_DUCK;
+          setMusicGain(target, 0.25);
+        },
+        unduckMusic() {
+          ducking = false;
+          if (state.muted) return;
+          const target = (music?.mode === 'track' || soundtrackUrl) ? TRACK_VOLUME : BED_VOLUME;
+          if (music || trackGain) setMusicGain(target, 0.8);
+        },
+      };
+    })();
+
+    /* ---------- Voice over (queued, Chrome-safe) ---------- */
+    const Voice = (() => {
+      const synth = window.speechSynthesis || null;
+      let voice = null;
+      let queue = [];
+      let speaking = false;
+      let unlocked = false;
+      const captionEl = document.getElementById('caption');
+
+      function pickVoice() {
+        if (!synth) return null;
+        const voices = synth.getVoices() || [];
+        if (!voices.length) return null;
+        const prefer = [
+          /Google US English/i,
+          /Samantha/i,
+          /Karen/i,
+          /Daniel/i,
+          /Microsoft (Aria|Guy|Jenny|Zira|David)/i,
+          /en[-_]US/i,
+          /en[-_]GB/i,
+          /^en/i,
+        ];
+        for (const re of prefer) {
+          const hit = voices.find((v) => re.test(v.name) || re.test(v.lang));
+          if (hit) return hit;
+        }
+        return voices.find((v) => v.localService) || voices[0];
+      }
+
+      function refreshVoice() {
+        const next = pickVoice();
+        if (next) voice = next;
+      }
+
+      if (synth) {
+        refreshVoice();
+        synth.onvoiceschanged = refreshVoice;
+        // Chrome silently pauses the TTS engine mid-stream
+        setInterval(() => {
+          if (state.muted || !synth.speaking) return;
+          try { synth.resume(); } catch (_) {}
+        }, 2500);
+      }
+
+      function showCaption(text) {
+        if (!captionEl) return;
+        captionEl.textContent = text;
+        captionEl.classList.add('show');
+      }
+
+      function hideCaption() {
+        if (!captionEl) return;
+        captionEl.classList.remove('show');
+      }
+
+      function utter(text) {
+        return new Promise((resolve) => {
+          showCaption(text);
+          AudioFX.duckMusic();
+          if (!synth || state.muted) {
+            setTimeout(() => {
+              hideCaption();
+              AudioFX.unduckMusic();
+              resolve();
+            }, Math.min(5000, 55 * text.length + 800));
+            return;
+          }
+          refreshVoice();
+          try { synth.resume(); } catch (_) {}
+
+          const u = new SpeechSynthesisUtterance(text);
+          u.rate = 1;
+          u.pitch = 1;
+          u.volume = 1;
+          u.lang = voice?.lang || 'en-US';
+          if (voice) u.voice = voice;
+
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            setTimeout(hideCaption, 600);
+            AudioFX.unduckMusic();
+            resolve();
+          };
+          u.onend = finish;
+          u.onerror = (ev) => {
+            console.warn('TTS error', ev?.error || ev);
+            finish();
+          };
+
+          setTimeout(() => {
+            if (state.muted) return finish();
+            try {
+              synth.speak(u);
+              setTimeout(() => {
+                if (!done && !synth.speaking && !synth.pending) finish();
+              }, 700);
+            } catch (err) {
+              console.warn('TTS speak failed', err);
+              finish();
+            }
+          }, 80);
+
+          setTimeout(finish, Math.max(6000, text.length * 90));
+        });
+      }
+
+      async function pump() {
+        if (speaking) return;
+        speaking = true;
+        while (queue.length) {
+          if (state.muted) {
+            queue.forEach((item) => item.resolve?.());
+            queue = [];
+            break;
+          }
+          const item = queue.shift();
+          await utter(item.text);
+          item.resolve?.();
+        }
+        speaking = false;
+        if (queue.length) pump();
+      }
+
+      function enqueue(text, { interrupt = false, wait = false } = {}) {
+        const line = String(text || '').trim();
+        if (!line) return Promise.resolve();
+        if (interrupt && synth) {
+          queue.forEach((item) => item.resolve?.());
+          queue = [];
+          speaking = false;
+          try { synth.cancel(); } catch (_) {}
+        }
+        return new Promise((resolve) => {
+          const entry = { text: line, resolve: wait || interrupt ? resolve : null };
+          queue.push(entry);
+          if (!wait && !interrupt) resolve();
+          pump();
+        });
+      }
+
+      return {
+        async unlock() {
+          unlocked = true;
+          if (!synth) return;
+          refreshVoice();
+          try {
+            synth.cancel();
+            synth.resume();
+          } catch (_) {}
+          // Must speak from the user-gesture stack so Chrome/Safari allow TTS
+          await new Promise((resolve) => {
+            const warm = new SpeechSynthesisUtterance('Flag Cup Chess.');
+            warm.rate = 1.05;
+            warm.volume = 1;
+            warm.lang = 'en-US';
+            refreshVoice();
+            if (voice) warm.voice = voice;
+            showCaption('Flag Cup Chess.');
+            warm.onend = resolve;
+            warm.onerror = resolve;
+            try { synth.speak(warm); } catch (_) { resolve(); }
+            setTimeout(resolve, 2500);
+          });
+        },
+        speak(text) { return enqueue(text, { interrupt: false, wait: false }); },
+        speakNow(text) { return enqueue(text, { interrupt: true, wait: true }); },
+        speakAndWait(text) { return enqueue(text, { interrupt: false, wait: true }); },
+        stop() {
+          queue.forEach((item) => item.resolve?.());
+          queue = [];
+          speaking = false;
+          try { synth?.cancel(); } catch (_) {}
+          hideCaption();
+        },
+        get ready() { return unlocked; },
+      };
+    })();
+
+    function speak(text) {
+      return Voice.speak(text);
+    }
+
+    /* ---------- Three.js board ---------- */
+    const Board3D = (() => {
+      const canvas = document.getElementById('board-canvas');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.1, 100);
+      const camHome = { x: 0, y: 11.5, z: 13.5, lookY: 0 };
+      camera.position.set(camHome.x, camHome.y, camHome.z);
+      camera.lookAt(0, camHome.lookY, 0);
+
+      const ambient = new THREE.AmbientLight(0x9aa4ff, 0.55);
+      scene.add(ambient);
+      const key = new THREE.DirectionalLight(0xffffff, 0.95);
+      key.position.set(6, 14, 8);
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0xf97316, 0.35);
+      rim.position.set(-8, 6, -4);
+      scene.add(rim);
+
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(18, 48),
+        new THREE.MeshStandardMaterial({ color: 0x0b0b18, metalness: 0.2, roughness: 0.85 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -0.02;
+      scene.add(floor);
+
+      const boardGroup = new THREE.Group();
+      scene.add(boardGroup);
+      const squareSize = 1.1;
+      const lightMat = new THREE.MeshStandardMaterial({ color: 0xd4b896, roughness: 0.1, metalness: 0.05 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x5b3a29, roughness: 0.25, metalness: 0.08 });
+      const squares = {};
+      for (let r = 0; r < 8; r++) {
+        for (let f = 0; f < 8; f++) {
+          const mesh = new THREE.Mesh(
+            new THREE.BoxGeometry(squareSize, 0.18, squareSize),
+            (r + f) % 2 === 0 ? darkMat.clone() : lightMat.clone()
+          );
+          mesh.position.set((f - 3.5) * squareSize, 0, (3.5 - r) * squareSize);
+          boardGroup.add(mesh);
+          squares[String.fromCharCode(97 + f) + (r + 1)] = mesh;
+        }
+      }
+
+      const pieceGroup = new THREE.Group();
+      boardGroup.add(pieceGroup);
+      const pieces = new Map();
+
+      function pieceMaterial(color) {
+        return new THREE.MeshStandardMaterial({
+          color: color === 'w' ? 0xf5f0e6 : 0x1a1a22,
+          metalness: 0.25,
+          roughness: 0.4,
+          emissive: color === 'w' ? 0x222218 : 0x050508,
+        });
+      }
+
+      function makePiece(type, color) {
+        const g = new THREE.Group();
+        const mat = pieceMaterial(color);
+        const add = (geo, y, s = 1) => {
+          const m = new THREE.Mesh(geo, mat);
+          m.position.y = y;
+          m.scale.setScalar(s);
+          g.add(m);
+        };
+        add(new THREE.CylinderGeometry(0.28, 0.34, 0.14, 16), 0.12);
+        if (type === 'p') {
+          add(new THREE.SphereGeometry(0.22, 12, 12), 0.42);
+        } else if (type === 'r') {
+          add(new THREE.BoxGeometry(0.42, 0.55, 0.42), 0.45);
+          add(new THREE.BoxGeometry(0.5, 0.12, 0.5), 0.78);
+        } else if (type === 'n') {
+          add(new THREE.ConeGeometry(0.28, 0.55, 8), 0.5);
+          add(new THREE.BoxGeometry(0.35, 0.18, 0.45), 0.72);
+        } else if (type === 'b') {
+          add(new THREE.ConeGeometry(0.26, 0.7, 12), 0.55);
+          add(new THREE.SphereGeometry(0.12, 8, 8), 0.95);
+        } else if (type === 'q') {
+          add(new THREE.CylinderGeometry(0.22, 0.3, 0.7, 12), 0.55);
+          add(new THREE.SphereGeometry(0.16, 10, 10), 1.0);
+          for (let i = 0; i < 5; i++) {
+            const tip = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.18, 6), mat);
+            const a = (i / 5) * Math.PI * 2;
+            tip.position.set(Math.cos(a) * 0.18, 1.12, Math.sin(a) * 0.18);
+            g.add(tip);
+          }
+        } else if (type === 'k') {
+          add(new THREE.CylinderGeometry(0.24, 0.32, 0.75, 12), 0.55);
+          const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), mat);
+          crossV.position.y = 1.15;
+          const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.1, 0.1), mat);
+          crossH.position.y = 1.2;
+          g.add(crossV, crossH);
+        }
+        g.userData = { type, color };
+        return g;
+      }
+
+      function squareToPos(sq) {
+        const f = sq.charCodeAt(0) - 97;
+        const r = Number(sq[1]) - 1;
+        return new THREE.Vector3((f - 3.5) * squareSize, 0.09, (3.5 - r) * squareSize);
+      }
+
+      function syncFromFen(fen) {
+        while (pieceGroup.children.length) pieceGroup.remove(pieceGroup.children[0]);
+        pieces.clear();
+        const chess = new Chess(fen);
+        const board = chess.board();
+        for (let r = 0; r < 8; r++) {
+          for (let f = 0; f < 8; f++) {
+            const p = board[r][f];
+            if (!p) continue;
+            const sq = String.fromCharCode(97 + f) + (8 - r);
+            const mesh = makePiece(p.type, p.color);
+            mesh.position.copy(squareToPos(sq));
+            pieceGroup.add(mesh);
+            pieces.set(sq, mesh);
+          }
+        }
+      }
+
+      let anim = null;
+      function animateMove(from, to, capturedSq, duration) {
+        return new Promise((resolve) => {
+          const mesh = pieces.get(from);
+          if (!mesh) { resolve(); return; }
+          const start = mesh.position.clone();
+          const end = squareToPos(to);
+          const cap = capturedSq ? pieces.get(capturedSq) : null;
+          const t0 = performance.now();
+          anim = {
+            tick(now) {
+              const t = Math.min(1, (now - t0) / duration);
+              const e = 1 - Math.pow(1 - t, 3);
+              mesh.position.lerpVectors(start, end, e);
+              mesh.position.y = 0.09 + Math.sin(Math.PI * e) * 0.9;
+              if (cap) {
+                cap.position.y = 0.09 + e * 2.5;
+                cap.material && (cap.visible = e < 0.95);
+                cap.traverse((ch) => { if (ch.material) ch.material.opacity = 1 - e; ch.material && (ch.material.transparent = true); });
+              }
+              if (t >= 1) {
+                mesh.position.copy(end);
+                mesh.position.y = 0.09;
+                pieces.delete(from);
+                if (cap) {
+                  pieceGroup.remove(cap);
+                  pieces.delete(capturedSq);
+                }
+                pieces.set(to, mesh);
+                anim = null;
+                resolve();
+              }
+            },
+          };
+        });
+      }
+
+      let kingPulse = null;
+      function pulseKing(sq) {
+        kingPulse = { sq, t0: performance.now() };
+      }
+
+      let flagW = null;
+      let flagB = null;
+      let lastIso = { w: 'br', b: 'de' };
+      function isPortraitStage() {
+        const stage = document.getElementById('stage');
+        return stage.clientHeight > stage.clientWidth;
+      }
+      function setFlags(isoW, isoB) {
+        lastIso = { w: isoW, b: isoB };
+        const loader = new THREE.TextureLoader();
+        loader.crossOrigin = 'anonymous';
+        if (flagW) scene.remove(flagW);
+        if (flagB) scene.remove(flagB);
+        const portrait = isPortraitStage();
+        const makeFlag = (iso, x) => {
+          const tex = loader.load(flagUrl(iso));
+          const mesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(portrait ? 2.6 : 3.2, portrait ? 1.7 : 2.1),
+            new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+          );
+          mesh.position.set(
+            portrait ? x * 0.72 : x,
+            portrait ? 4.2 : 3.2,
+            portrait ? -5.2 : -7.2
+          );
+          mesh.rotation.y = x < 0 ? 0.25 : -0.25;
+          scene.add(mesh);
+          return mesh;
+        };
+        flagW = makeFlag(isoW, -6.5);
+        flagB = makeFlag(isoB, 6.5);
+      }
+
+      let particles = [];
+      function celebrate(colorHex) {
+        particles = [];
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+        for (let i = 0; i < 40; i++) {
+          const p = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), mat);
+          p.position.set((Math.random() - 0.5) * 8, 1 + Math.random() * 2, (Math.random() - 0.5) * 8);
+          p.userData.v = new THREE.Vector3((Math.random() - 0.5) * 0.08, 0.05 + Math.random() * 0.08, (Math.random() - 0.5) * 0.08);
+          scene.add(p);
+          particles.push(p);
+        }
+        setTimeout(() => {
+          particles.forEach((p) => scene.remove(p));
+          particles = [];
+        }, 2500);
+      }
+
+      let orbit = 0;
+      let wasPortrait = null;
+      function applyCameraForAspect() {
+        const portrait = isPortraitStage();
+        if (portrait) {
+          camHome.y = 14.2;
+          camHome.z = 16.8;
+          camHome.lookY = -0.8;
+          camera.fov = 50;
+        } else {
+          camHome.y = 11.5;
+          camHome.z = 13.5;
+          camHome.lookY = 0;
+          camera.fov = 42;
+        }
+        if (orbit <= 0) {
+          camera.position.set(camHome.x, camHome.y, camHome.z);
+          camera.lookAt(0, camHome.lookY, 0);
+        }
+        camera.updateProjectionMatrix();
+      }
+      function resize() {
+        const stage = document.getElementById('stage');
+        const w = stage.clientWidth;
+        const h = stage.clientHeight;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / Math.max(h, 1);
+        applyCameraForAspect();
+        const portrait = h > w;
+        if (wasPortrait !== portrait) {
+          wasPortrait = portrait;
+          if (lastIso.w && lastIso.b) setFlags(lastIso.w, lastIso.b);
+        }
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function loop(now) {
+        requestAnimationFrame(loop);
+        if (anim) anim.tick(now);
+        if (kingPulse) {
+          const mesh = pieces.get(kingPulse.sq);
+          if (mesh) {
+            const s = 1 + Math.sin((now - kingPulse.t0) * 0.02) * 0.12;
+            mesh.scale.setScalar(s);
+          }
+          if (now - kingPulse.t0 > 1200) {
+            if (mesh) mesh.scale.setScalar(1);
+            kingPulse = null;
+          }
+        }
+        particles.forEach((p) => {
+          p.position.add(p.userData.v);
+          p.userData.v.y -= 0.002;
+        });
+        if (orbit > 0) {
+          orbit -= 0.01;
+          camera.position.x = Math.sin(performance.now() * 0.0004) * 2;
+          camera.position.y = camHome.y;
+          camera.position.z = camHome.z;
+          camera.lookAt(0, camHome.lookY, 0);
+        } else {
+          camera.position.x *= 0.95;
+          camera.position.y += (camHome.y - camera.position.y) * 0.08;
+          camera.position.z += (camHome.z - camera.position.z) * 0.08;
+        }
+        renderer.render(scene, camera);
+      }
+      requestAnimationFrame(loop);
+
+      return {
+        reset(fen) { syncFromFen(fen || new Chess().fen()); },
+        animateMove,
+        pulseKing,
+        setFlags,
+        celebrate,
+        startOrbit() { orbit = 4; },
+        resize,
+        findKingSquare(chess, color) {
+          const board = chess.board();
+          for (let r = 0; r < 8; r++) {
+            for (let f = 0; f < 8; f++) {
+              const p = board[r][f];
+              if (p && p.type === 'k' && p.color === color) {
+                return String.fromCharCode(97 + f) + (8 - r);
+              }
+            }
+          }
+          return null;
+        },
+      };
+    })();
+
+    /* ---------- HUD ---------- */
+    function $(id) { return document.getElementById(id); }
+
+    function renderGroupTables() {
+      const body = $('left-body');
+      if (state.phase.startsWith('knockout') || state.phase === 'champion') {
+        $('left-title').textContent = 'BRACKET';
+        const b = state.bracket;
+        let html = '';
+        const line = (label, fixtures, winners) => {
+          html += `<div class="round">${label}</div>`;
+          fixtures.forEach((f, i) => {
+            const w = nationById(f.white);
+            const bl = nationById(f.black);
+            const won = winners[i];
+            html += `<div>${w.name} vs ${bl.name}${won ? ` → <b>${nationById(won).name}</b>` : ''}</div>`;
+          });
+        };
+        if (b.qf.length) line('QUARTERFINALS', b.qf, b.winners.qf);
+        if (b.sf.length) line('SEMIFINALS', b.sf, b.winners.sf);
+        if (b.final) {
+          html += `<div class="round">FINAL</div>`;
+          const w = nationById(b.final.white);
+          const bl = nationById(b.final.black);
+          html += `<div>${w.name} vs ${bl.name}${b.winners.champion ? ` → <b>${nationById(b.winners.champion).name}</b>` : ''}</div>`;
+        }
+        body.innerHTML = `<div id="bracket">${html}</div>`;
+        return;
+      }
+      $('left-title').textContent = 'GROUP TABLES';
+      let html = '';
+      for (const letter of ['A', 'B', 'C', 'D']) {
+        const g = state.groupData[letter];
+        const ranked = g.ranked || rankGroup(g.standings, g.results);
+        html += `<div style="margin-bottom:10px;"><div style="color:#a5b4fc;font-weight:700;margin-bottom:4px;">GROUP ${letter}</div>`;
+        html += `<table class="standings"><thead><tr><th>#</th><th>Nation</th><th>P</th><th>Pts</th></tr></thead><tbody>`;
+        ranked.forEach((row, i) => {
+          const n = nationById(row.id);
+          const cls = i < 2 ? 'qualify' : '';
+          html += `<tr class="${cls}"><td>${i + 1}</td><td><img class="flag" src="${flagUrl(n.iso)}" alt=""/>${n.name}</td><td>${row.played}</td><td>${row.points}</td></tr>`;
+        });
+        html += `</tbody></table></div>`;
+      }
+      body.innerHTML = html;
+    }
+
+    function updateLowerThird(fixture, scoreText) {
+      const w = nationById(fixture.white);
+      const b = nationById(fixture.black);
+      $('lt-flag-w').src = flagUrl(w.iso);
+      $('lt-flag-b').src = flagUrl(b.iso);
+      $('lt-name-w').textContent = w.name.toUpperCase();
+      $('lt-name-b').textContent = b.name.toUpperCase();
+      $('lt-label').textContent = fixture.label || '';
+      $('lt-score').textContent = scoreText || '0-0';
+      $('now-meta').textContent = `${fixture.label} · ${w.name} vs ${b.name}`;
+      Board3D.setFlags(w.iso, b.iso);
+    }
+
+    function updateMoves(moves) {
+      const list = $('move-list');
+      const recent = moves.slice(-12);
+      let html = '';
+      for (let i = 0; i < recent.length; i += 2) {
+        const num = moves.length - recent.length + i;
+        const n = Math.floor(num / 2) + 1;
+        html += `<li>${n}. ${recent[i]?.san || ''}${recent[i + 1] ? ' ' + recent[i + 1].san : ''}</li>`;
+      }
+      list.innerHTML = html;
+      $('clock-white').textContent = `W ${state.moveCount.w}`;
+      $('clock-black').textContent = `B ${state.moveCount.b}`;
+    }
+
+    function setTicker(items) {
+      $('ticker-track').textContent = items.join('   ·   ') + '   ·   ';
+    }
+
+    function showOverlay(title, sub, whiteId, blackId) {
+      const w = nationById(whiteId);
+      const b = nationById(blackId);
+      $('overlay-title').textContent = title;
+      $('overlay-sub').textContent = sub || '';
+      $('ov-flag-w').src = flagUrl(w.iso);
+      $('ov-flag-b').src = flagUrl(b.iso);
+      $('ov-name-w').textContent = w.name;
+      $('ov-name-b').textContent = b.name;
+      $('overlay-card').classList.add('show');
+    }
+    function hideOverlay() { $('overlay-card').classList.remove('show'); }
+
+    function sleep(ms, runId = state.runId) {
+      return new Promise((resolve) => {
+        const start = performance.now();
+        function frame(now) {
+          if (!isActiveRun(runId) || state.skipMatch) return resolve();
+          if (!state.paused && now - start >= ms) return resolve();
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      });
+    }
+
+    function waitWhilePaused(runId = state.runId) {
+      return new Promise((resolve) => {
+        function tick() {
+          if (!isActiveRun(runId) || !state.paused) resolve();
+          else requestAnimationFrame(tick);
+        }
+        tick();
+      });
+    }
+
+    /* ---------- Match director ---------- */
+    async function playLiveMatch(fixture, runId = state.runId) {
+      if (!isActiveRun(runId)) return '1/2-1/2';
+      state.skipMatch = false;
+      state.currentMoves = [];
+      state.moveCount = { w: 0, b: 0 };
+      const white = nationById(fixture.white);
+      const black = nationById(fixture.black);
+      const chess = new Chess();
+      Board3D.reset(chess.fen());
+      updateLowerThird(fixture, '0-0');
+      updateMoves([]);
+      showOverlay(fixture.label, 'Match about to begin', white.id, black.id);
+      await Voice.speakAndWait(`${fixture.label}. ${white.name} versus ${black.name}.`);
+      if (!isActiveRun(runId)) return '1/2-1/2';
+      AudioFX.crowdStart();
+      AudioFX.musicStart();
+      await sleep(900, runId);
+      hideOverlay();
+      if (!isActiveRun(runId)) return '1/2-1/2';
+
+      const delay = () => SPEEDS[state.speed] || SPEEDS.broadcast;
+
+      while (!isGameOver(chess) && isActiveRun(runId)) {
+        await waitWhilePaused(runId);
+        if (!isActiveRun(runId)) return '1/2-1/2';
+        if (state.skipMatch) break;
+
+        const side = chess.turn() === 'w' ? white : black;
+        const move = chooseBotMove(chess, side.depth, Math.random);
+        if (!move) break;
+
+        const from = move.from;
+        const to = move.to;
+        let capturedSq = null;
+        if (move.flags && move.flags.includes('e')) {
+          const file = to[0];
+          const rank = from[1];
+          capturedSq = file + rank;
+        } else if (move.captured) {
+          capturedSq = to;
+        }
+        const played = chess.move(move);
+        state.currentMoves.push(played);
+        if (played.color === 'w') state.moveCount.w += 1;
+        else state.moveCount.b += 1;
+        updateMoves(state.currentMoves);
+
+        await Board3D.animateMove(from, to, capturedSq, Math.min(450, delay() * 0.4));
+        if (/[kp]/.test(played.flags || '')) {
+          Board3D.reset(chess.fen());
+        }
+
+        if (played.captured) AudioFX.capture();
+        else AudioFX.move();
+
+        if (isCheck(chess)) {
+          AudioFX.check();
+          const ksq = Board3D.findKingSquare(chess, chess.turn());
+          if (ksq) Board3D.pulseKing(ksq);
+          if (Math.random() < 0.22) speak(`Check!`);
+        } else if (played.captured && Math.random() < 0.18) {
+          speak(`${side.name} takes.`);
+        }
+
+        await sleep(delay(), runId);
+      }
+
+      if (!isActiveRun(runId)) return '1/2-1/2';
+
+      let result;
+      if (state.skipMatch) {
+        const quick = Engine.playAutomatedGame(white, black, { Chess, maxPlies: 120, rng: Math.random });
+        result = quick.result;
+        await Voice.speakAndWait('Match accelerated.');
+      } else if (isCheckmate(chess)) {
+        result = chess.turn() === 'w' ? '0-1' : '1-0';
+        Board3D.startOrbit();
+        const winner = result === '1-0' ? white : black;
+        Board3D.celebrate(0xf97316);
+        AudioFX.sting();
+        await Voice.speakAndWait(`Checkmate! ${winner.name} wins.`);
+      } else {
+        result = '1/2-1/2';
+        AudioFX.sting();
+        await Voice.speakAndWait('The game is drawn.');
+      }
+
+      if (!isActiveRun(runId)) return result;
+
+      const scoreText = result === '1-0' ? '1-0' : result === '0-1' ? '0-1' : '½-½';
+      updateLowerThird(fixture, scoreText);
+      showOverlay(scoreText, `${white.name} vs ${black.name}`, white.id, black.id);
+      await sleep(2200, runId);
+      hideOverlay();
+      return result;
+    }
+
+    async function runGroupStage(runId = state.runId) {
+      if (!isActiveRun(runId)) return null;
+      state.phase = 'groups';
+      $('phase-label').textContent = 'WORLD CUP · GROUP STAGE';
+      state.groupSchedule = buildGroupSchedule();
+      setTicker(state.groupSchedule.map((g) => `${g.label}: ${nationById(g.white).name} vs ${nationById(g.black).name}`));
+      renderGroupTables();
+
+      for (let i = 0; i < state.groupSchedule.length; i++) {
+        if (!isActiveRun(runId)) return null;
+        state.scheduleIndex = i;
+        const fixture = state.groupSchedule[i];
+        const result = await playLiveMatch(fixture, runId);
+        if (!isActiveRun(runId)) return null;
+        applyMatchResult(state.groupData[fixture.group].standings, fixture.white, fixture.black, result);
+        state.groupData[fixture.group].results.push({ white: fixture.white, black: fixture.black, result });
+        state.groupData[fixture.group].ranked = rankGroup(
+          state.groupData[fixture.group].standings,
+          state.groupData[fixture.group].results
+        );
+        renderGroupTables();
+      }
+
+      for (const letter of ['A', 'B', 'C', 'D']) {
+        state.groupData[letter].ranked = rankGroup(
+          state.groupData[letter].standings,
+          state.groupData[letter].results
+        );
+      }
+      renderGroupTables();
+
+      const q = getQualifiers(state.groupData);
+      showOverlay('QUALIFIED', 'Top two from each group advance', q.A1, q.B1);
+      AudioFX.fanfare();
+      await Voice.speakAndWait('Group stage complete. Eight nations have qualified for the knockouts.');
+      if (!isActiveRun(runId)) return null;
+      await sleep(1200, runId);
+      hideOverlay();
+      return q;
+    }
+
+    async function runKnockoutMatch(fixture, runId = state.runId) {
+      let result = await playLiveMatch(fixture, runId);
+      if (!isActiveRun(runId)) return { result, winner: fixture.white };
+      let win = winnerOf(result, fixture.white, fixture.black);
+      if (!win) {
+        await Voice.speakAndWait('Draw in knockout. Higher seed advances on tiebreak.');
+        win = fixture.white;
+        result = '1-0';
+      }
+      return { result, winner: win };
+    }
+
+    async function runKnockouts(qualifiers, runId = state.runId) {
+      if (!isActiveRun(runId) || !qualifiers) return;
+      state.phase = 'knockout-qf';
+      $('phase-label').textContent = 'WORLD CUP · QUARTERFINALS';
+      const qf = knockoutFixtures(qualifiers);
+      state.bracket.qf = qf;
+      state.bracket.winners.qf = [];
+      renderGroupTables();
+      setTicker(qf.map((f) => `QF: ${nationById(f.white).name} vs ${nationById(f.black).name}`));
+
+      for (const fixture of qf) {
+        if (!isActiveRun(runId)) return;
+        const { winner } = await runKnockoutMatch(fixture, runId);
+        if (!isActiveRun(runId)) return;
+        state.bracket.winners.qf.push(winner);
+        renderGroupTables();
+        await Voice.speakAndWait(`${nationById(winner).name} advances to the semifinals.`);
+      }
+
+      state.phase = 'knockout-sf';
+      $('phase-label').textContent = 'WORLD CUP · SEMIFINALS';
+      const sf = nextKnockoutRound(state.bracket.winners.qf, 'SF');
+      state.bracket.sf = sf;
+      state.bracket.winners.sf = [];
+      renderGroupTables();
+      setTicker(sf.map((f) => `SF: ${nationById(f.white).name} vs ${nationById(f.black).name}`));
+
+      for (const fixture of sf) {
+        if (!isActiveRun(runId)) return;
+        const { winner } = await runKnockoutMatch(fixture, runId);
+        if (!isActiveRun(runId)) return;
+        state.bracket.winners.sf.push(winner);
+        renderGroupTables();
+        await Voice.speakAndWait(`${nationById(winner).name} reaches the final.`);
+      }
+
+      if (!isActiveRun(runId)) return;
+      state.phase = 'knockout-final';
+      $('phase-label').textContent = 'WORLD CUP · FINAL';
+      const finalists = state.bracket.winners.sf;
+      state.bracket.final = {
+        round: 'FINAL',
+        white: finalists[0],
+        black: finalists[1],
+        label: 'FINAL',
+      };
+      renderGroupTables();
+      setTicker([`FINAL: ${nationById(finalists[0]).name} vs ${nationById(finalists[1]).name}`]);
+      await Voice.speakAndWait(`The final: ${nationById(finalists[0]).name} versus ${nationById(finalists[1]).name}.`);
+
+      if (!isActiveRun(runId)) return;
+      const { winner } = await runKnockoutMatch(state.bracket.final, runId);
+      if (!isActiveRun(runId)) return;
+      state.bracket.winners.champion = winner;
+      state.phase = 'champion';
+      renderGroupTables();
+      $('phase-label').textContent = 'WORLD CUP · CHAMPION';
+      Board3D.celebrate(0xfbbf24);
+      Board3D.startOrbit();
+      AudioFX.fanfare();
+      showOverlay('CHAMPION', `${nationById(winner).name} wins Flag Cup Chess!`, winner, winner);
+      await Voice.speakAndWait(`Champions of Flag Cup Chess: ${nationById(winner).name}!`);
+      setTicker([`CHAMPION · ${nationById(winner).name.toUpperCase()}`, 'Thanks for watching Flag Cup Chess']);
+    }
+
+    async function runTournament() {
+      const runId = ++state.runId;
+      state.paused = false;
+      state.skipMatch = false;
+      updatePauseButton();
+      await Voice.speakAndWait('Welcome to the tournament. Sixteen nations. One crown.');
+      if (!isActiveRun(runId)) return;
+      const q = await runGroupStage(runId);
+      if (!isActiveRun(runId)) return;
+      await runKnockouts(q, runId);
+    }
+
+    /* ---------- Controls ---------- */
+    function updateSoundtrackStatus() {
+      const el = $('soundtrack-status');
+      if (!el) return;
+      const name = AudioFX.getSoundtrackName();
+      el.textContent = name
+        ? `Ready: ${name} · volume 20%`
+        : 'No src — using built-in bed';
+    }
+
+    AudioFX.initSoundtrackFromHtml();
+    updateSoundtrackStatus();
+
+    $('apply-track-btn').addEventListener('click', () => {
+      const path = $('soundtrack-src').value.trim();
+      AudioFX.unlock();
+      AudioFX.setSoundtrackSrc(path);
+      updateSoundtrackStatus();
+      if (path) Voice.speak(`Soundtrack source set at 20 percent volume.`);
+      else Voice.speak('Soundtrack cleared.');
+    });
+
+    $('soundtrack-src').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        $('apply-track-btn').click();
+      }
+    });
+
+    $('soundtrack-input').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      AudioFX.unlock();
+      AudioFX.setSoundtrack(file);
+      updateSoundtrackStatus();
+      Voice.speak(`Soundtrack loaded at 20 percent volume.`);
+    });
+
+    $('clear-track-btn').addEventListener('click', () => {
+      const input = $('soundtrack-input');
+      if (input) input.value = '';
+      AudioFX.setSoundtrackSrc('');
+      updateSoundtrackStatus();
+      if ($('splash').classList.contains('hidden') && !state.muted) {
+        AudioFX.musicStart();
+      }
+      Voice.speak('Soundtrack cleared. Using built-in music.');
+    });
+
+    $('shuffle-btn').addEventListener('click', () => {
+      applyShuffle(true);
+    });
+
+    $('start-btn').addEventListener('click', async () => {
+      $('splash').classList.add('hidden');
+      $('game-actions').classList.add('show');
+      state.paused = false;
+      updatePauseButton();
+      AudioFX.unlock();
+      AudioFX.musicStart();
+      await Voice.unlock();
+      try {
+        await runTournament();
+      } catch (err) {
+        console.error(err);
+        await Voice.speakNow('Broadcast error. Check the console.');
+      }
+    });
+
+    $('pause-btn').addEventListener('click', () => togglePause());
+    $('reset-btn').addEventListener('click', () => resetBroadcast());
+
+    $('mute-btn').addEventListener('click', () => {
+      state.muted = !state.muted;
+      $('mute-btn').textContent = state.muted ? 'SOUND OFF' : 'SOUND ON';
+      if (state.muted) {
+        AudioFX.crowdStop();
+        AudioFX.musicStop();
+        Voice.stop();
+      } else {
+        AudioFX.musicStart();
+        AudioFX.crowdStart();
+        Voice.speak('Voice over is back on.');
+      }
+    });
+
+    function cycleAspect() {
+      const body = document.body;
+      if (body.classList.contains('force-916')) {
+        body.classList.remove('force-916');
+        body.classList.add('force-169');
+      } else if (body.classList.contains('force-169')) {
+        body.classList.remove('force-169');
+      } else {
+        body.classList.add('force-916');
+      }
+      requestAnimationFrame(() => Board3D.resize());
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'c' || e.key === 'C') {
+        $('controls').classList.toggle('open');
+      }
+      if (e.key === 'v' || e.key === 'V') {
+        cycleAspect();
+      }
+      if (e.key === ' ') {
+        e.preventDefault();
+        togglePause();
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        if ($('splash').classList.contains('hidden')) resetBroadcast();
+      }
+    });
+
+    $('controls').addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const act = btn.dataset.act;
+      if (act === 'pause') togglePause();
+      if (act === 'slow') state.speed = 'slow';
+      if (act === 'broadcast') state.speed = 'broadcast';
+      if (act === 'fast') state.speed = 'fast';
+      if (act === 'skip') state.skipMatch = true;
+      if (act === 'aspect') cycleAspect();
+    });
+
+    Board3D.reset();
+    renderGroupTables();
+    renderDrawPreview();
+    previewOpeningFixture();
+  </script>
+</body>
+</html>
